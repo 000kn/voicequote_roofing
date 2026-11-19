@@ -559,20 +559,10 @@ export default function Home() {
               >
                 <thead>
                   <tr style={{ backgroundColor: "#1e293b", color: "#ffffff" }}>
-                    <th style={{ padding: "7px 8px", textAlign: "center", width: "28px" }}>No</th>
-                    <th style={{ padding: "7px 10px", textAlign: "left" }}>
+                    <th style={{ padding: "8px", textAlign: "center", width: "36px" }}>No</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left" }}>
                       Yapılacak İş ve Malzeme Detayı
                     </th>
-                    {quote.yapilacak_isler.some((i) => i.miktar) && (
-                      <th style={{ padding: "7px 8px", textAlign: "right", width: "75px" }}>
-                        Miktar
-                      </th>
-                    )}
-                    {quote.yapilacak_isler.some((i) => i.toplam_fiyat) && (
-                      <th style={{ padding: "7px 10px", textAlign: "right", width: "85px" }}>
-                        Tutar
-                      </th>
-                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -586,35 +576,25 @@ export default function Home() {
                     >
                       <td
                         style={{
-                          padding: "8px",
+                          padding: "9px 8px",
                           textAlign: "center",
                           fontWeight: "bold",
-                          color: "#64748b",
-                          verticalAlign: "top",
+                          fontSize: "10.5px",
+                          color: "#475569",
+                          verticalAlign: "middle",
                         }}
                       >
                         {idx + 1}
                       </td>
-                      <td style={{ padding: "8px 10px", color: "#0f172a" }}>{item.aciklama}</td>
-                      {quote.yapilacak_isler.some((i) => i.miktar) && (
-                        <td style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap" }}>
-                          {item.miktar ? `${item.miktar} ${item.birim || ""}` : "-"}
-                        </td>
-                      )}
-                      {quote.yapilacak_isler.some((i) => i.toplam_fiyat) && (
-                        <td
-                          style={{
-                            padding: "8px 10px",
-                            textAlign: "right",
-                            fontWeight: "bold",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {item.toplam_fiyat
-                            ? `${item.toplam_fiyat.toLocaleString("tr-TR")} TL`
-                            : "-"}
-                        </td>
-                      )}
+                      <td
+                        style={{
+                          padding: "9px 12px",
+                          color: "#0f172a",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        {item.aciklama}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
