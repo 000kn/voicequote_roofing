@@ -246,7 +246,12 @@ export default function Home() {
             <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer bg-slate-100 px-3 py-2 rounded-lg">
               <Upload className="w-4 h-4" />
               Ses Dosyası Yükle (.m4a / .mp3 / .ogg)
-              <input type="file" accept="audio/*" onChange={handleFileUpload} className="hidden" />
+              <input
+                    type="file"
+                    accept="audio/*,.m4a,.mp3,.ogg,.opus,.aac,.wav,.mp4"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
             </label>
           </div>
         </div>
