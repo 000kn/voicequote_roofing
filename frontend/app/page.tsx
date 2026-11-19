@@ -384,135 +384,341 @@ export default function Home() {
             ref={pdfRef}
             style={{
               width: "186mm",
+              minHeight: "265mm",
               boxSizing: "border-box",
               backgroundColor: "#ffffff",
-              color: "#0f172a",
-              padding: "16px",
+              color: "#1e293b",
               fontFamily: "Arial, Helvetica, sans-serif",
-              fontSize: "11px",
-              lineHeight: "1.5",
+              fontSize: "10.5px",
+              lineHeight: "1.45",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                borderBottom: "1.5px solid #1e293b",
-                paddingBottom: "10px",
-                marginBottom: "14px",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: "15px", fontWeight: "bold", color: "#0f172a" }}>
-                  {firmaAdi}
-                </div>
-                <div style={{ fontSize: "10px", color: "#475569", marginTop: "2px" }}>
-                  Tel: {firmaTel}
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: "bold", fontSize: "12px", color: "#1e293b" }}>
-                  FİYAT TEKLİFİ
-                </div>
-                <div style={{ fontSize: "10px", color: "#475569", marginTop: "2px" }}>
-                  Tarih: {quote.tarih}
-                </div>
-              </div>
-            </div>
-
-            {(quote.bina_adi || quote.musteri_adi) && (
+            <div>
+              {/* Kurumsal Üst Antet */}
               <div
                 style={{
-                  marginBottom: "14px",
-                  backgroundColor: "#f8fafc",
-                  padding: "9px 11px",
-                  borderRadius: "4px",
-                  border: "1px solid #e2e8f0",
-                  fontSize: "11px",
+                  backgroundColor: "#0f172a",
+                  color: "#ffffff",
+                  padding: "16px 20px",
+                  borderRadius: "6px 6px 0 0",
+                  borderBottom: "3px solid #d97706",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                 }}
               >
-                {quote.bina_adi && (
-                  <div>
-                    <strong>Bina / Site:</strong> {quote.bina_adi}
+                <div>
+                  <div style={{ fontSize: "16px", fontWeight: "bold", letterSpacing: "0.4px" }}>
+                    {firmaAdi}
                   </div>
-                )}
-                {quote.musteri_adi && (
-                  <div>
-                    <strong>Sayın:</strong> {quote.musteri_adi}
+                  <div style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "3px" }}>
+                    Çatı Sistemleri • Su & Isı İzolasyon Uygulamaları
                   </div>
-                )}
+                  <div style={{ fontSize: "10px", color: "#fbbf24", marginTop: "2px", fontWeight: "bold" }}>
+                    Tel: {firmaTel}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "bold",
+                      letterSpacing: "1px",
+                      color: "#ffffff",
+                    }}
+                  >
+                    FİYAT TEKLİFİ
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "4px" }}>
+                    Tarih: <strong style={{ color: "#ffffff" }}>{quote.tarih}</strong>
+                  </div>
+                </div>
               </div>
-            )}
 
-            <div
-              style={{
-                fontWeight: "bold",
-                fontSize: "12px",
-                marginBottom: "8px",
-                textDecoration: "underline",
-              }}
-            >
-              {quote.baslik}
-            </div>
-            <ol style={{ paddingLeft: "18px", marginBottom: "14px", fontSize: "11px" }}>
-              {quote.yapilacak_isler.map((item, idx) => (
-                <li key={idx} style={{ marginBottom: "4px" }}>
-                  {item.aciklama}
-                </li>
-              ))}
-            </ol>
-
-            {quote.garanti_var_mi && (
-              <p style={{ marginBottom: "12px", fontWeight: "bold", fontSize: "11px", color: "#065f46" }}>
-                ✓{" "}
-                {quote.garanti_suresi && quote.garanti_suresi !== "Belirtilmemiş"
-                  ? `Yapılan uygulama ${quote.garanti_suresi} firmamız garantisi altındadır.`
-                  : "Yapılan uygulama firmamız garantisi altındadır."}
-              </p>
-            )}
-
-            <div
-              style={{
-                borderTop: "1px solid #cbd5e1",
-                borderBottom: "1px solid #cbd5e1",
-                padding: "9px 11px",
-                margin: "12px 0",
-                backgroundColor: "#f8fafc",
-              }}
-            >
-              <div style={{ fontSize: "12px", fontWeight: "bold" }}>
-                Toplam Tutar: {quote.ana_tutar_rakam.toLocaleString("tr-TR")} TL (
-                {quote.ana_tutar_yaziyla} Türk Lirası)
-              </div>
-            </div>
-
-            {quote.alternatif_not_var_mi && quote.alternatif_aciklama && (
+              {/* Müşteri & Teklif Koşulları Kartları */}
               <div
                 style={{
-                  marginBottom: "14px",
-                  padding: "8px 10px",
-                  border: "1px dashed #94a3b8",
+                  display: "flex",
+                  gap: "12px",
+                  marginTop: "14px",
+                  marginBottom: "16px",
+                }}
+              >
+                {/* Sol Kart: Müşteri / Bina */}
+                <div
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "5px",
+                    padding: "10px 12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "9px",
+                      fontWeight: "bold",
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginBottom: "5px",
+                    }}
+                  >
+                    Müşteri & Yapı Bilgileri
+                  </div>
+                  <div style={{ fontSize: "11px", fontWeight: "bold", color: "#0f172a" }}>
+                    {quote.bina_adi || "Belirtilmedi"}
+                  </div>
+                  {quote.musteri_adi && (
+                    <div style={{ marginTop: "2px" }}>
+                      <strong>Sayın:</strong> {quote.musteri_adi}
+                    </div>
+                  )}
+                  {quote.musteri_telefon && (
+                    <div style={{ marginTop: "2px" }}>
+                      <strong>İletişim:</strong> {quote.musteri_telefon}
+                    </div>
+                  )}
+                  {quote.konum && (
+                    <div style={{ marginTop: "2px" }}>
+                      <strong>Konum:</strong> {quote.konum}
+                    </div>
+                  )}
+                </div>
+
+                {/* Sağ Kart: İş Koşulları */}
+                <div
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "5px",
+                    padding: "10px 12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "9px",
+                      fontWeight: "bold",
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginBottom: "5px",
+                    }}
+                  >
+                    Uygulama & Teslim Koşulları
+                  </div>
+                  <div>
+                    <strong>Garanti:</strong>{" "}
+                    {quote.garanti_var_mi
+                      ? `${quote.garanti_suresi || "10 Yıl"} İşçilik & Uygulama Garantili`
+                      : "Garanti Kapsamı Dışında"}
+                  </div>
+                  {quote.teslim_suresi_gun && (
+                    <div style={{ marginTop: "2px" }}>
+                      <strong>Tahmini Süre:</strong> {quote.teslim_suresi_gun} İş Günü
+                    </div>
+                  )}
+                  {quote.pesinat && (
+                    <div style={{ marginTop: "2px" }}>
+                      <strong>Ödeme Planı:</strong> {quote.pesinat.toLocaleString("tr-TR")} TL Peşinat
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* İş Kalemleri Tablosu */}
+              <div
+                style={{
+                  fontSize: "11.5px",
+                  fontWeight: "bold",
+                  color: "#0f172a",
+                  marginBottom: "8px",
+                  paddingLeft: "6px",
+                  borderLeft: "3px solid #d97706",
+                }}
+              >
+                {quote.baslik}
+              </div>
+
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginBottom: "16px",
                   fontSize: "10.5px",
                 }}
               >
-                <strong>Alternatif Seçenek:</strong> {quote.alternatif_aciklama}
-                {quote.alternatif_tutar_rakam && (
-                  <span>
-                    {" "}
-                    — {quote.alternatif_tutar_rakam.toLocaleString("tr-TR")} TL (
-                    {quote.alternatif_tutar_yaziyla} TL)
-                  </span>
-                )}
-              </div>
-            )}
+                <thead>
+                  <tr style={{ backgroundColor: "#1e293b", color: "#ffffff" }}>
+                    <th style={{ padding: "7px 8px", textAlign: "center", width: "28px" }}>No</th>
+                    <th style={{ padding: "7px 10px", textAlign: "left" }}>
+                      Yapılacak İş ve Malzeme Detayı
+                    </th>
+                    {quote.yapilacak_isler.some((i) => i.miktar) && (
+                      <th style={{ padding: "7px 8px", textAlign: "right", width: "75px" }}>
+                        Miktar
+                      </th>
+                    )}
+                    {quote.yapilacak_isler.some((i) => i.toplam_fiyat) && (
+                      <th style={{ padding: "7px 10px", textAlign: "right", width: "85px" }}>
+                        Tutar
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {quote.yapilacak_isler.map((item, idx) => (
+                    <tr
+                      key={idx}
+                      style={{
+                        backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                        borderBottom: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <td
+                        style={{
+                          padding: "8px",
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          color: "#64748b",
+                          verticalAlign: "top",
+                        }}
+                      >
+                        {idx + 1}
+                      </td>
+                      <td style={{ padding: "8px 10px", color: "#0f172a" }}>{item.aciklama}</td>
+                      {quote.yapilacak_isler.some((i) => i.miktar) && (
+                        <td style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          {item.miktar ? `${item.miktar} ${item.birim || ""}` : "-"}
+                        </td>
+                      )}
+                      {quote.yapilacak_isler.some((i) => i.toplam_fiyat) && (
+                        <td
+                          style={{
+                            padding: "8px 10px",
+                            textAlign: "right",
+                            fontWeight: "bold",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {item.toplam_fiyat
+                            ? `${item.toplam_fiyat.toLocaleString("tr-TR")} TL`
+                            : "-"}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-            <div style={{ marginTop: "28px" }}>
-              <div style={{ fontSize: "10px", color: "#64748b" }}>Teklif Veren Yetkililer</div>
-              <div style={{ fontWeight: "bold", fontSize: "11px", marginTop: "2px" }}>
-                {aktifYetkililer}
+              {/* Toplam Tutar Kutusu */}
+              <div
+                style={{
+                  backgroundColor: "#0f172a",
+                  color: "#ffffff",
+                  padding: "12px 16px",
+                  borderRadius: "5px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "14px",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "9.5px", color: "#94a3b8", textTransform: "uppercase" }}>
+                    İşçilik ve Malzeme Dahil Toplam Tutar
+                  </div>
+                  <div style={{ fontSize: "10.5px", color: "#e2e8f0", marginTop: "2px" }}>
+                    Yalnız: <strong>{quote.ana_tutar_yaziyla} Türk Lirası</strong>
+                  </div>
+                </div>
+                <div style={{ fontSize: "16px", fontWeight: "bold", color: "#fbbf24" }}>
+                  {quote.ana_tutar_rakam.toLocaleString("tr-TR")} TL
+                </div>
               </div>
-              <div style={{ fontSize: "10px", color: "#475569" }}>{firmaTel}</div>
+
+              {/* Alternatif Seçenek Kutusu */}
+              {quote.alternatif_not_var_mi && quote.alternatif_aciklama && (
+                <div
+                  style={{
+                    backgroundColor: "#fffbeb",
+                    border: "1px solid #fcd34d",
+                    borderLeft: "4px solid #d97706",
+                    borderRadius: "4px",
+                    padding: "9px 12px",
+                    marginBottom: "14px",
+                    fontSize: "10px",
+                  }}
+                >
+                  <div style={{ fontWeight: "bold", color: "#92400e", marginBottom: "2px" }}>
+                    ALTERNATİF UYGULAMA SEÇENEĞİ
+                  </div>
+                  <div style={{ color: "#1e293b" }}>
+                    {quote.alternatif_aciklama}
+                    {quote.alternatif_tutar_rakam && (
+                      <strong style={{ marginLeft: "6px", color: "#0f172a" }}>
+                        — {quote.alternatif_tutar_rakam.toLocaleString("tr-TR")} TL (
+                        {quote.alternatif_tutar_yaziyla} TL)
+                      </strong>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Alt Kaşe & İmza Alanı */}
+            <div
+              style={{
+                borderTop: "1px solid #cbd5e1",
+                paddingTop: "14px",
+                marginTop: "20px",
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "24px",
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  border: "1px dashed #cbd5e1",
+                  borderRadius: "4px",
+                  padding: "10px 12px",
+                  minHeight: "56px",
+                }}
+              >
+                <div style={{ fontSize: "9px", color: "#64748b", textTransform: "uppercase" }}>
+                  Müşteri / Yönetici Onayı
+                </div>
+                <div style={{ fontSize: "10px", fontWeight: "bold", marginTop: "3px" }}>
+                  {quote.musteri_adi || quote.bina_adi || "İmza / Kaşe"}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  flex: 1,
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "4px",
+                  padding: "10px 12px",
+                  minHeight: "56px",
+                  textAlign: "right",
+                }}
+              >
+                <div style={{ fontSize: "9px", color: "#64748b", textTransform: "uppercase" }}>
+                  Teklif Veren Firma Yetkilisi
+                </div>
+                <div style={{ fontSize: "11px", fontWeight: "bold", color: "#0f172a", marginTop: "3px" }}>
+                  {aktifYetkililer}
+                </div>
+                <div style={{ fontSize: "9.5px", color: "#475569", marginTop: "1px" }}>
+                  {firmaAdi} • {firmaTel}
+                </div>
+              </div>
             </div>
           </div>
         </div>
