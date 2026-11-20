@@ -36,6 +36,21 @@ interface QuoteData {
   missing_critical_info: string[];
 }
 
+function formatTrPhone(raw: string | null): string {
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  const normalized = digits.length === 10 && digits.startsWith("5") ? `0${digits}` : digits;
+  if (normalized.length === 11 && normalized.startsWith("0")) {
+    return `${normalized.slice(0, 4)} ${normalized.slice(4, 7)} ${normalized.slice(7, 9)} ${normalized.slice(9, 11)}`;
+  }
+  return raw;
+}
+
+function formatGaranti(raw: string | null): string {
+  const val = (raw || "10 Yıl").trim();
+  return val.replace(/\byıl\b/gi, "Yıl");
+}
+
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -46,6 +61,7 @@ export default function Home() {
   const [firmaAdi, setFirmaAdi] = useState("AKSOY ÇATI & İZOLASYON");
   const [firmaTel, setFirmaTel] = useState("0532 411 84 32");
   const [varsayilanYetkililer, setVarsayilanYetkililer] = useState("Yalçın Aksoy, Yavuz Aksoy");
+  const [kdvNotu, setKdvNotu] = useState("Fiyatlarımıza KDV dahil değildir. Teklifimiz 15 gün süreyle geçerlidir.");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -55,9 +71,11 @@ export default function Home() {
     const savedFirma = localStorage.getItem("tp_firma");
     const savedTel = localStorage.getItem("tp_tel");
     const savedYetkili = localStorage.getItem("tp_yetkili");
+    const savedKdv = localStorage.getItem("tp_kdv_notu");
     if (savedFirma) setFirmaAdi(savedFirma);
     if (savedTel) setFirmaTel(savedTel);
     if (savedYetkili) setVarsayilanYetkililer(savedYetkili);
+    if (savedKdv) setKdvNotu(savedKdv);
 
     setIsOffline(!navigator.onLine);
     const handleOnline = () => setIsOffline(false);
@@ -74,6 +92,7 @@ export default function Home() {
     localStorage.setItem("tp_firma", firmaAdi);
     localStorage.setItem("tp_tel", firmaTel);
     localStorage.setItem("tp_yetkili", varsayilanYetkililer);
+    localStorage.setItem("tp_kdv_notu", kdvNotu);
     setShowSettings(false);
   };
 
@@ -146,6 +165,7 @@ export default function Home() {
       html2canvas: {
         scale: 2,
         backgroundColor: "#ffffff",
+        useCORS: true,
         onclone: (clonedDoc: Document) => {
           clonedDoc.querySelectorAll("style, link[rel='stylesheet']").forEach((el) => el.remove());
         },
@@ -215,6 +235,13 @@ export default function Home() {
               placeholder="Teklif Veren Yetkililer"
               className="w-full border rounded-lg p-2.5 text-sm"
             />
+            <textarea
+              rows={2}
+              value={kdvNotu}
+              onChange={(e) => setKdvNotu(e.target.value)}
+              placeholder="Standart Teklif Koşulları (KDV / Geçerlilik)"
+              className="w-full border rounded-lg p-2.5 text-sm"
+            />
             <button
               onClick={saveSettings}
               className="w-full bg-slate-900 text-white py-2.5 rounded-lg text-sm font-medium"
@@ -237,7 +264,11 @@ export default function Home() {
 
           <div>
             <p className="font-semibold text-slate-800">
-              {loading ? "Yapay zeka teklifi hazırlıyor..." : isRecording ? "Dinliyor... Bitirmek için dokun" : "Teklifi Anlatmak İçin Dokun"}
+              {loading
+                ? "Yapay zeka teklifi hazırlıyor..."
+                : isRecording
+                ? "Dinliyor... Bitirmek için dokun"
+                : "Teklifi Anlatmak İçin Dokun"}
             </p>
             <p className="text-xs text-slate-500 mt-1">Yapılacak işleri, tutarı ve garanti durumunu söyleyin</p>
           </div>
@@ -246,12 +277,7 @@ export default function Home() {
             <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer bg-slate-100 px-3 py-2 rounded-lg">
               <Upload className="w-4 h-4" />
               Ses Dosyası Yükle (.m4a / .mp3 / .ogg)
-              <input
-                    type="file"
-                    accept="audio/*,.m4a,.mp3,.ogg,.opus,.aac,.wav,.mp4"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
+              <input type="file" onChange={handleFileUpload} className="hidden" />
             </label>
           </div>
         </div>
@@ -365,7 +391,7 @@ export default function Home() {
               </label>
               {quote.garanti_var_mi && (
                 <input
-                  value={quote.garanti_suresi || "10 yıl"}
+                  value={quote.garanti_suresi || "10 Yıl"}
                   onChange={(e) => setQuote({ ...quote, garanti_suresi: e.target.value })}
                   className="w-24 border rounded-lg p-1.5 text-xs text-center bg-white"
                 />
@@ -415,15 +441,30 @@ export default function Home() {
                   alignItems: "center",
                 }}
               >
-                <div>
-                  <div style={{ fontSize: "16px", fontWeight: "bold", letterSpacing: "0.4px" }}>
-                    {firmaAdi}
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "3px" }}>
-                    Çatı Sistemleri • Su & Isı İzolasyon Uygulamaları
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#fbbf24", marginTop: "2px", fontWeight: "bold" }}>
-                    Tel: {firmaTel}
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <img
+                    src="/logo.png"
+                    alt="Firma Logosu"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                    style={{
+                      height: "42px",
+                      width: "auto",
+                      objectFit: "contain",
+                      borderRadius: "4px",
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontSize: "16px", fontWeight: "bold", letterSpacing: "0.4px" }}>
+                      {firmaAdi}
+                    </div>
+                    <div style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "3px" }}>
+                      Çatı Sistemleri • Su &amp; Isı İzolasyon Uygulamaları
+                    </div>
+                    <div style={{ fontSize: "10px", color: "#fbbf24", marginTop: "2px", fontWeight: "bold" }}>
+                      Tel: {firmaTel}
+                    </div>
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -472,7 +513,7 @@ export default function Home() {
                       marginBottom: "5px",
                     }}
                   >
-                    Müşteri & Yapı Bilgileri
+                    Müşteri &amp; Yapı Bilgileri
                   </div>
                   <div style={{ fontSize: "11px", fontWeight: "bold", color: "#0f172a" }}>
                     {quote.bina_adi || "Belirtilmedi"}
@@ -484,7 +525,7 @@ export default function Home() {
                   )}
                   {quote.musteri_telefon && (
                     <div style={{ marginTop: "2px" }}>
-                      <strong>İletişim:</strong> {quote.musteri_telefon}
+                      <strong>İletişim:</strong> {formatTrPhone(quote.musteri_telefon)}
                     </div>
                   )}
                   {quote.konum && (
@@ -514,12 +555,12 @@ export default function Home() {
                       marginBottom: "5px",
                     }}
                   >
-                    Uygulama & Teslim Koşulları
+                    Uygulama &amp; Teslim Koşulları
                   </div>
                   <div>
                     <strong>Garanti:</strong>{" "}
                     {quote.garanti_var_mi
-                      ? `${quote.garanti_suresi || "10 Yıl"} İşçilik & Uygulama Garantili`
+                      ? `${formatGaranti(quote.garanti_suresi)} İşçilik & Uygulama Garantili`
                       : "Garanti Kapsamı Dışında"}
                   </div>
                   {quote.teslim_suresi_gun && (
@@ -653,6 +694,37 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              {/* Genel Teklif Koşulları & Notlar */}
+              <div
+                style={{
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "5px",
+                  padding: "10px 12px",
+                  marginBottom: "14px",
+                  fontSize: "9.5px",
+                  color: "#475569",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    color: "#334155",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.4px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Teklif Koşulları &amp; Genel Notlar
+                </div>
+                <div style={{ lineHeight: "1.5" }}>
+                  • {kdvNotu}
+                  <br />• Belirtilen tutar, yukarıda kapsamı yazılı işler için anahtar teslim götürü bedeldir.
+                  <br />• İş başlangıcında iş güvenliği tedbirleri ve malzeme sevkiyatı firmamız tarafından sağlanacaktır.
+                </div>
+              </div>
             </div>
 
             {/* Alt Kaşe & İmza Alanı */}
