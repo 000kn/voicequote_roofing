@@ -453,6 +453,8 @@ export default function Home() {
                       width: "auto",
                       objectFit: "contain",
                       borderRadius: "4px",
+                      backgroundColor: "#ffffff",
+                      padding: "4px",
                     }}
                   />
                   <div>
