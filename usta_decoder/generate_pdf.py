@@ -7,15 +7,17 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 
 class TeklifPDF(FPDF):
     def header(self):
-        # Başlık Bölümü
-        self.set_font("Helvetica", "B", 16)
-        self.cell(0, 10, "MUSTERI TEKLIF FORMU", border=False, new_x="LMARGIN", new_y="NEXT", align="C")
+        # Minimalist başlık
+        self.set_font("Helvetica", "B", 14)
+        self.cell(0, 10, "FİYAT TEKLİFİ", border=False, new_x="LMARGIN", new_y="NEXT", align="R")
+        self.set_draw_color(30, 41, 59)
+        self.line(10, 20, 200, 20)
         self.ln(5)
 
     def footer(self):
         self.set_y(-15)
         self.set_font("Helvetica", "I", 8)
-        self.cell(0, 10, "Bu teklif otomatik otomasyon sistemi ile uretilmistir.", align="C")
+        self.cell(0, 10, "Aksoy Çatı Sistemleri", align="C")
 
 def pdf_olustur(json_veri: dict, cikti_dosyasi="teklif.pdf"):
     pdf = TeklifPDF()

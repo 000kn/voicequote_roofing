@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Mic, Square, Upload, FileText, Share2, Plus, Trash2, Settings, WifiOff } from "lucide-react";
+import { Mic, Square, Upload, FileText, Share2, Plus, Trash2, Settings, WifiOff, LogIn, LogOut, Crown, Download } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { processLogoImage } from "../utils/logoProcessor";
+import { PdfTemplate } from "../components/PdfTemplate";
+import { PaymentSlider } from "../components/PaymentSlider";
 
 interface TeklifKalemi {
   aciklama: string;
@@ -24,6 +28,7 @@ interface QuoteData {
   ana_tutar_yaziyla: string;
   amount_verified: boolean;
   pesinat: number | null;
+  odeme_plani: string | null; // <-- EKLENDİ
   teslim_suresi_gun: number | null;
   garanti_var_mi: boolean;
   garanti_suresi: string | null;
@@ -58,16 +63,75 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
 
+  const [user, setUser] = useState<any>(null);
+  const [session, setSession] = useState<any>(null);
+  const [isPro, setIsPro] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
+
   const [firmaAdi, setFirmaAdi] = useState("AKSOY ÇATI & İZOLASYON");
   const [firmaTel, setFirmaTel] = useState("0532 411 84 32");
   const [varsayilanYetkililer, setVarsayilanYetkililer] = useState("Yalçın Aksoy, Yavuz Aksoy");
   const [kdvNotu, setKdvNotu] = useState("Fiyatlarımıza KDV dahil değildir. Teklifimiz 15 gün süreyle geçerlidir.");
+  const [processedLogo, setProcessedLogo] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (quote) {
+      // 3. Ödeme Planı: Sadece plan boşsa veya varsayılan 40/60 planıysa otomatik dolsun
+      const pesinat = quote.ana_tutar_rakam * 0.4;
+      const kalan = quote.ana_tutar_rakam * 0.6;
+      const defaultPlan = `%40 Peşin (${pesinat.toLocaleString("tr-TR")} TL) - %60 İş Tesliminde (${kalan.toLocaleString("tr-TR")} TL)`;
+
+      // Sadece boşsa veya varsayılan 40/60 planıysa (yani %60 İş Tesliminde içeriyorsa) güncelle
+      if (!quote.odeme_plani || quote.odeme_plani.includes("%60 İş Tesliminde")) {
+        setQuote(prev => prev ? ({
+          ...prev,
+          odeme_plani: defaultPlan
+        }) : null);
+      }
+    }
+  }, [quote?.ana_tutar_rakam]);
+
+  // 4. Mevcut Uzun Maddelerin İlk Açılışta Tam Görünmesi
+  useEffect(() => {
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach(ta => {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    });
+  }, [quote?.yapilacak_isler]);
+
+  useEffect(() => {
+    processLogoImage("/logo.png").then(setProcessedLogo);
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setIsPro(false);
+      }
+    });
+
     const savedFirma = localStorage.getItem("tp_firma");
     const savedTel = localStorage.getItem("tp_tel");
     const savedYetkili = localStorage.getItem("tp_yetkili");
@@ -83,16 +147,72 @@ export default function Home() {
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     return () => {
+      subscription.unsubscribe();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
-  const saveSettings = () => {
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      if (data && !error) {
+        if (data.firma_adi) setFirmaAdi(data.firma_adi);
+        if (data.firma_tel) setFirmaTel(data.firma_tel);
+        if (data.varsayilan_yetkililer) setVarsayilanYetkililer(data.varsayilan_yetkililer);
+        if (data.kdv_notu) setKdvNotu(data.kdv_notu);
+        if (data.is_pro !== undefined) setIsPro(data.is_pro);
+      }
+    } catch (e) {
+      console.error("Profil çekilemedi:", e);
+    }
+  };
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (isRegistering) {
+        const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+        if (error) throw error;
+        alert("Kayıt başarılı! Giriş yapabilirsiniz.");
+        setIsRegistering(false);
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+        if (error) throw error;
+        setShowAuthModal(false);
+      }
+    } catch (err: any) {
+      alert(`Kimlik doğrulama hatası: ${err.message}`);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setIsPro(false);
+  };
+
+  const saveSettings = async () => {
     localStorage.setItem("tp_firma", firmaAdi);
     localStorage.setItem("tp_tel", firmaTel);
     localStorage.setItem("tp_yetkili", varsayilanYetkililer);
     localStorage.setItem("tp_kdv_notu", kdvNotu);
+
+    if (user) {
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        firma_adi: firmaAdi,
+        firma_tel: firmaTel,
+        varsayilan_yetkililer: varsayilanYetkililer,
+        kdv_notu: kdvNotu,
+        updated_at: new Date().toISOString(),
+      });
+    }
     setShowSettings(false);
   };
 
@@ -136,45 +256,85 @@ export default function Home() {
       const formData = new FormData();
       formData.append("audio", audioBlob, filename);
 
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       const res = await fetch(`${apiUrl}/api/parse-quote`, {
         method: "POST",
+        headers,
         body: formData,
       });
 
-      if (!res.ok) throw new Error("API hatası");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "API hatası");
+      }
       const data: QuoteData = await res.json();
       setQuote(data);
-    } catch (err) {
-      alert("Ses işlenirken hata oluştu. Backend sunucusunun açık olduğundan emin olun.");
+    } catch (err: any) {
+      alert(`Ses işlenirken hata oluştu: ${err.message}`);
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateAndSharePdf = async () => {
-    if (!pdfRef.current || !quote) return;
+  const slugifyFilename = (text: string) => {
+    const trMap: Record<string, string> = {
+      'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'İ': 'I',
+      'Ç': 'C', 'Ğ': 'G', 'Ö': 'O', 'Ş': 'S', 'Ü': 'U'
+    };
+    return text.replace(/[çğıöşüİÇĞÖŞÜ]/g, m => trMap[m]).replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_.]/g, "");
+  };
+
+  const generatePdfBlob = async () => {
+    if (!pdfRef.current || !quote) return null;
     const html2pdf = (await import("html2pdf.js")).default;
-    const dosyaAdi = `${(quote.bina_adi || quote.musteri_adi || "Teklif").replace(/\s+/g, "_")}_${quote.tarih}.pdf`;
+    const baseName = slugifyFilename(quote.bina_adi || quote.musteri_adi || "Teklif");
+    const dosyaAdi = `${baseName}_${quote.tarih}.pdf`;
 
     const opt = {
-      margin: 12,
+      margin: 0,
       filename: dosyaAdi,
       image: { type: "jpeg" as const, quality: 0.98 },
       html2canvas: {
         scale: 2,
-        backgroundColor: "#ffffff",
+        width: 794,
+        windowWidth: 794,
         useCORS: true,
         onclone: (clonedDoc: Document) => {
           clonedDoc.querySelectorAll("style, link[rel='stylesheet']").forEach((el) => el.remove());
         },
       },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+      jsPDF: { unit: "px", format: [794, 1123], orientation: "portrait" as const },
     };
 
     const pdfBlob: Blob = await html2pdf().set(opt).from(pdfRef.current).outputPdf("blob");
-    const file = new File([pdfBlob], dosyaAdi, { type: "application/pdf" });
+    return { blob: pdfBlob, name: dosyaAdi };
+  };
+
+  const generateAndSharePdf = async () => {
+    const pdfData = await generatePdfBlob();
+    if (!pdfData) return;
+    
+    const file = new File([pdfData.blob], pdfData.name, { type: "application/pdf" });
+
+    if (user) {
+      await supabase.from("quotes").insert([
+        {
+          user_id: user.id,
+          tarih: quote.tarih,
+          musteri_adi: quote.musteri_adi,
+          bina_adi: quote.bina_adi,
+          konum: quote.konum,
+          ana_tutar_rakam: quote.ana_tutar_rakam,
+          quote_data: quote,
+        },
+      ]);
+    }
 
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
@@ -182,12 +342,22 @@ export default function Home() {
         title: `${firmaAdi} - Fiyat Teklifi`,
       });
     } else {
-      const url = URL.createObjectURL(pdfBlob);
+      const url = URL.createObjectURL(pdfData.blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = dosyaAdi;
+      a.download = pdfData.name;
       a.click();
     }
+  };
+
+  const downloadPdf = async () => {
+    const pdfData = await generatePdfBlob();
+    if (!pdfData) return;
+    const url = URL.createObjectURL(pdfData.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = pdfData.name;
+    a.click();
   };
 
   const aktifYetkililer =
@@ -312,28 +482,24 @@ export default function Home() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs text-slate-500">Teklif Başlığı</label>
-              <input
-                value={quote.baslik}
-                onChange={(e) => setQuote({ ...quote, baslik: e.target.value })}
-                className="w-full border rounded-lg p-2 text-sm mt-1 font-medium"
-              />
-            </div>
-
             <div className="space-y-2">
               <label className="text-xs text-slate-500 block">Yapılacak İşler</label>
               {quote.yapilacak_isler.map((item, idx) => (
                 <div key={idx} className="flex gap-2 items-start">
                   <textarea
-                    rows={2}
                     value={item.aciklama}
                     onChange={(e) => {
                       const updated = [...quote.yapilacak_isler];
                       updated[idx].aciklama = e.target.value;
                       setQuote({ ...quote, yapilacak_isler: updated });
                     }}
-                    className="w-full border rounded-lg p-2 text-sm"
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = "auto";
+                      target.style.height = target.scrollHeight + "px";
+                    }}
+                    className="w-full border rounded-lg p-2 text-sm overflow-hidden resize-none"
+                    style={{ height: 'auto', minHeight: '60px' }}
                   />
                   <button
                     onClick={() => {
@@ -359,13 +525,28 @@ export default function Home() {
               </button>
             </div>
 
+            {/* Toplam Tutar ve Yazıyla Tutar */}
             <div className="grid grid-cols-2 gap-3 pt-2 border-t">
               <div>
                 <label className="text-xs text-slate-500">Toplam Tutar (TL)</label>
                 <input
                   type="number"
                   value={quote.ana_tutar_rakam}
-                  onChange={(e) => setQuote({ ...quote, ana_tutar_rakam: Number(e.target.value) })}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    const pesinat = val * 0.4;
+                    const kalan = val * 0.6;
+                    const defaultPlan = `%40 Peşin (${pesinat.toLocaleString("tr-TR")} TL) - %60 İş Tesliminde (${kalan.toLocaleString("tr-TR")} TL)`;
+                    
+                    // Check if current plan is empty or seems like the previous auto-generated one
+                    const isDefault = !quote.odeme_plani || quote.odeme_plani.includes("%60 İş Tesliminde");
+                    
+                    setQuote({
+                      ...quote,
+                      ana_tutar_rakam: val,
+                      odeme_plani: isDefault ? defaultPlan : quote.odeme_plani
+                    });
+                  }}
                   className="w-full border rounded-lg p-2 text-sm font-bold mt-1"
                 />
               </div>
@@ -377,6 +558,24 @@ export default function Home() {
                   className="w-full border rounded-lg p-2 text-sm mt-1"
                 />
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs text-slate-500 block">Ödeme Planı</label>
+              <PaymentSlider 
+                plan={quote.odeme_plani || ""} 
+                total={quote.ana_tutar_rakam}
+                onChange={(newPlan) => setQuote({ ...quote, odeme_plani: newPlan })}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Tahmini Süre (Gün)</label>
+              <input
+                type="number"
+                value={quote.teslim_suresi_gun || ""}
+                onChange={(e) => setQuote({ ...quote, teslim_suresi_gun: Number(e.target.value) })}
+                className="w-full border rounded-lg p-2 text-sm mt-1"
+              />
             </div>
 
             <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl">
@@ -404,383 +603,36 @@ export default function Home() {
             >
               <Share2 className="w-5 h-5" /> PDF Oluştur ve WhatsApp&apos;tan Gönder
             </button>
+            <button
+              onClick={downloadPdf}
+              className="w-full bg-white hover:bg-slate-50 text-slate-700 font-semibold py-3.5 rounded-xl shadow border border-slate-200 flex items-center justify-center gap-2"
+            >
+              <Download className="w-5 h-5" /> PDF İndir
+            </button>
           </div>
         )}
       </div>
 
       {/* GİZLİ A4 PDF ŞABLONU */}
       {quote && (
-        <div style={{ position: "fixed", left: "-9999px", top: 0 }}>
-          <div
-            ref={pdfRef}
-            style={{
-              width: "186mm",
-              minHeight: "265mm",
-              boxSizing: "border-box",
-              backgroundColor: "#ffffff",
-              color: "#1e293b",
-              fontFamily: "Arial, Helvetica, sans-serif",
-              fontSize: "10.5px",
-              lineHeight: "1.45",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-            }}
-          >
-            <div>
-              {/* Kurumsal Üst Antet */}
-              <div
-                style={{
-                  backgroundColor: "#0f172a",
-                  color: "#ffffff",
-                  padding: "16px 20px",
-                  borderRadius: "6px 6px 0 0",
-                  borderBottom: "3px solid #d97706",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <img
-                    src="/logo.png"
-                    alt="Firma Logosu"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                    }}
-                    style={{
-                      height: "42px",
-                      width: "auto",
-                      objectFit: "contain",
-                      borderRadius: "4px",
-                      backgroundColor: "#ffffff",
-                      padding: "4px",
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontSize: "16px", fontWeight: "bold", letterSpacing: "0.4px" }}>
-                      {firmaAdi}
-                    </div>
-                    <div style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "3px" }}>
-                      Çatı Sistemleri • Su &amp; Isı İzolasyon Uygulamaları
-                    </div>
-                    <div style={{ fontSize: "10px", color: "#fbbf24", marginTop: "2px", fontWeight: "bold" }}>
-                      Tel: {firmaTel}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: "bold",
-                      letterSpacing: "1px",
-                      color: "#ffffff",
-                    }}
-                  >
-                    FİYAT TEKLİFİ
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "4px" }}>
-                    Tarih: <strong style={{ color: "#ffffff" }}>{quote.tarih}</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Müşteri & Teklif Koşulları Kartları */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  marginTop: "14px",
-                  marginBottom: "16px",
-                }}
-              >
-                {/* Sol Kart: Müşteri / Bina */}
-                <div
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "5px",
-                    padding: "10px 12px",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "9px",
-                      fontWeight: "bold",
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    Müşteri &amp; Yapı Bilgileri
-                  </div>
-                  <div style={{ fontSize: "11px", fontWeight: "bold", color: "#0f172a" }}>
-                    {quote.bina_adi || "Belirtilmedi"}
-                  </div>
-                  {quote.musteri_adi && (
-                    <div style={{ marginTop: "2px" }}>
-                      <strong>Sayın:</strong> {quote.musteri_adi}
-                    </div>
-                  )}
-                  {quote.musteri_telefon && (
-                    <div style={{ marginTop: "2px" }}>
-                      <strong>İletişim:</strong> {formatTrPhone(quote.musteri_telefon)}
-                    </div>
-                  )}
-                  {quote.konum && (
-                    <div style={{ marginTop: "2px" }}>
-                      <strong>Konum:</strong> {quote.konum}
-                    </div>
-                  )}
-                </div>
-
-                {/* Sağ Kart: İş Koşulları */}
-                <div
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "5px",
-                    padding: "10px 12px",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "9px",
-                      fontWeight: "bold",
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    Uygulama &amp; Teslim Koşulları
-                  </div>
-                  <div>
-                    <strong>Garanti:</strong>{" "}
-                    {quote.garanti_var_mi
-                      ? `${formatGaranti(quote.garanti_suresi)} İşçilik & Uygulama Garantili`
-                      : "Garanti Kapsamı Dışında"}
-                  </div>
-                  {quote.teslim_suresi_gun && (
-                    <div style={{ marginTop: "2px" }}>
-                      <strong>Tahmini Süre:</strong> {quote.teslim_suresi_gun} İş Günü
-                    </div>
-                  )}
-                  {quote.pesinat && (
-                    <div style={{ marginTop: "2px" }}>
-                      <strong>Ödeme Planı:</strong> {quote.pesinat.toLocaleString("tr-TR")} TL Peşinat
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* İş Kalemleri Tablosu */}
-              <div
-                style={{
-                  fontSize: "11.5px",
-                  fontWeight: "bold",
-                  color: "#0f172a",
-                  marginBottom: "8px",
-                  paddingLeft: "6px",
-                  borderLeft: "3px solid #d97706",
-                }}
-              >
-                {quote.baslik}
-              </div>
-
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  marginBottom: "16px",
-                  fontSize: "10.5px",
-                }}
-              >
-                <thead>
-                  <tr style={{ backgroundColor: "#1e293b", color: "#ffffff" }}>
-                    <th style={{ padding: "8px", textAlign: "center", width: "36px" }}>No</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left" }}>
-                      Yapılacak İş ve Malzeme Detayı
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quote.yapilacak_isler.map((item, idx) => (
-                    <tr
-                      key={idx}
-                      style={{
-                        backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
-                        borderBottom: "1px solid #e2e8f0",
-                      }}
-                    >
-                      <td
-                        style={{
-                          padding: "9px 8px",
-                          textAlign: "center",
-                          fontWeight: "bold",
-                          fontSize: "10.5px",
-                          color: "#475569",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        {idx + 1}
-                      </td>
-                      <td
-                        style={{
-                          padding: "9px 12px",
-                          color: "#0f172a",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        {item.aciklama}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Toplam Tutar Kutusu */}
-              <div
-                style={{
-                  backgroundColor: "#0f172a",
-                  color: "#ffffff",
-                  padding: "12px 16px",
-                  borderRadius: "5px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "14px",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: "9.5px", color: "#94a3b8", textTransform: "uppercase" }}>
-                    İşçilik ve Malzeme Dahil Toplam Tutar
-                  </div>
-                  <div style={{ fontSize: "10.5px", color: "#e2e8f0", marginTop: "2px" }}>
-                    Yalnız: <strong>{quote.ana_tutar_yaziyla} Türk Lirası</strong>
-                  </div>
-                </div>
-                <div style={{ fontSize: "16px", fontWeight: "bold", color: "#fbbf24" }}>
-                  {quote.ana_tutar_rakam.toLocaleString("tr-TR")} TL
-                </div>
-              </div>
-
-              {/* Alternatif Seçenek Kutusu */}
-              {quote.alternatif_not_var_mi && quote.alternatif_aciklama && (
-                <div
-                  style={{
-                    backgroundColor: "#fffbeb",
-                    border: "1px solid #fcd34d",
-                    borderLeft: "4px solid #d97706",
-                    borderRadius: "4px",
-                    padding: "9px 12px",
-                    marginBottom: "14px",
-                    fontSize: "10px",
-                  }}
-                >
-                  <div style={{ fontWeight: "bold", color: "#92400e", marginBottom: "2px" }}>
-                    ALTERNATİF UYGULAMA SEÇENEĞİ
-                  </div>
-                  <div style={{ color: "#1e293b" }}>
-                    {quote.alternatif_aciklama}
-                    {quote.alternatif_tutar_rakam && (
-                      <strong style={{ marginLeft: "6px", color: "#0f172a" }}>
-                        — {quote.alternatif_tutar_rakam.toLocaleString("tr-TR")} TL (
-                        {quote.alternatif_tutar_yaziyla} TL)
-                      </strong>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Genel Teklif Koşulları & Notlar */}
-              <div
-                style={{
-                  backgroundColor: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "5px",
-                  padding: "10px 12px",
-                  marginBottom: "14px",
-                  fontSize: "9.5px",
-                  color: "#475569",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "9px",
-                    fontWeight: "bold",
-                    color: "#334155",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.4px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  Teklif Koşulları &amp; Genel Notlar
-                </div>
-                <div style={{ lineHeight: "1.5" }}>
-                  • {kdvNotu}
-                  <br />• Belirtilen tutar, yukarıda kapsamı yazılı işler için anahtar teslim götürü bedeldir.
-                  <br />• İş başlangıcında iş güvenliği tedbirleri ve malzeme sevkiyatı firmamız tarafından sağlanacaktır.
-                </div>
-              </div>
-            </div>
-
-            {/* Alt Kaşe & İmza Alanı */}
-            <div
-              style={{
-                borderTop: "1px solid #cbd5e1",
-                paddingTop: "14px",
-                marginTop: "20px",
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "24px",
-              }}
-            >
-              <div
-                style={{
-                  flex: 1,
-                  border: "1px dashed #cbd5e1",
-                  borderRadius: "4px",
-                  padding: "10px 12px",
-                  minHeight: "56px",
-                }}
-              >
-                <div style={{ fontSize: "9px", color: "#64748b", textTransform: "uppercase" }}>
-                  Müşteri / Yönetici Onayı
-                </div>
-                <div style={{ fontSize: "10px", fontWeight: "bold", marginTop: "3px" }}>
-                  {quote.musteri_adi || quote.bina_adi || "İmza / Kaşe"}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  flex: 1,
-                  backgroundColor: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "4px",
-                  padding: "10px 12px",
-                  minHeight: "56px",
-                  textAlign: "right",
-                }}
-              >
-                <div style={{ fontSize: "9px", color: "#64748b", textTransform: "uppercase" }}>
-                  Teklif Veren Firma Yetkilisi
-                </div>
-                <div style={{ fontSize: "11px", fontWeight: "bold", color: "#0f172a", marginTop: "3px" }}>
-                  {aktifYetkililer}
-                </div>
-                <div style={{ fontSize: "9.5px", color: "#475569", marginTop: "1px" }}>
-                  {firmaAdi} • {firmaTel}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PdfTemplate
+          pdfRef={pdfRef}
+          logoSrc={processedLogo || "/logo.png"}
+          companyName={firmaAdi}
+          companyPhone={firmaTel}
+          date={quote.tarih}
+          buildingName={quote.bina_adi || "Belirtilmedi"}
+          clientName={quote.musteri_adi || ""}
+          clientPhone={formatTrPhone(quote.musteri_telefon)}
+          location={quote.konum || ""}
+          warranty={quote.garanti_var_mi ? `${formatGaranti(quote.garanti_suresi)} İşçilik & Uygulama Garantili` : "Garanti Kapsamı Dışında"}
+          estimatedDays={quote.teslim_suresi_gun ? String(quote.teslim_suresi_gun) : undefined}
+          paymentPlan={quote.odeme_plani || ""}
+          items={quote.yapilacak_isler.map((item) => item.aciklama)}
+          formattedTotal={quote.ana_tutar_rakam.toLocaleString("tr-TR")}
+          amountInWords={quote.ana_tutar_yaziyla}
+          notes={kdvNotu}
+        />
       )}
     </main>
   );
