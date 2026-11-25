@@ -1,5 +1,12 @@
 import React from 'react';
 
+// Helper function to format units
+export const formatUnits = (text: string): string => {
+  return text
+    .replace(/\b(\d+(?:[.,]\d+)?)\s*m2\b/gi, '$1 m²')
+    .replace(/\b(\d+(?:[.,]\d+)?)\s*m3\b/gi, '$1 m³');
+};
+
 export interface PdfTemplateProps {
   pdfRef: React.RefObject<HTMLDivElement | null>;
   logoSrc?: string;
@@ -179,7 +186,7 @@ export const PdfTemplate: React.FC<PdfTemplateProps> = ({
                     color: '#000000',
                   }}
                 >
-                  {item}
+                  {formatUnits(item)}
                 </td>
               </tr>
             ))}
@@ -206,22 +213,22 @@ export const PdfTemplate: React.FC<PdfTemplateProps> = ({
           <div style={{ fontSize: '11px', lineHeight: 1.45 }}>{notes}</div>
         </div>
 
-        {/* İmza Alanı (Madde sayısına göre adaptif boşluk) */}
+        {/* İmza Alanı */}
         <div
           style={{
-            marginTop: items.length >= 7 ? '48px' : '128px',
+            marginTop: '56px',
             display: 'flex',
-            justifyContent: 'space-around',
+            justifyContent: 'space-between',
             alignItems: 'flex-start',
             color: '#000000',
           }}
         >
-          <div style={{ textAlign: 'center', width: '180px' }}>
+          <div style={{ textAlign: 'center', width: '256px' }}>
             <div style={{ borderTop: '1px solid #000000', paddingTop: '6px', fontSize: '10px' }}>
               MÜŞTERİ / YÖNETİCİ ONAYI
             </div>
           </div>
-          <div style={{ textAlign: 'center', width: '180px' }}>
+          <div style={{ textAlign: 'center', width: '256px' }}>
             <div style={{ borderTop: '1px solid #000000', paddingTop: '6px', fontSize: '10px' }}>
               TEKLİF VEREN FİRMA YETKİLİSİ
             </div>

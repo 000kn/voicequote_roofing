@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Mic, Square, Upload, FileText, Share2, Plus, Trash2, Settings, WifiOff, LogIn, LogOut, Crown, Download } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { processLogoImage } from "../utils/logoProcessor";
-import { PdfTemplate } from "../components/PdfTemplate";
+import { PdfTemplate, formatUnits } from "../components/PdfTemplate";
 import { PaymentSlider } from "../components/PaymentSlider";
 
 interface TeklifKalemi {
@@ -273,6 +273,10 @@ export default function Home() {
         throw new Error(errData.detail || "API hatası");
       }
       const data: QuoteData = await res.json();
+      data.yapilacak_isler = data.yapilacak_isler.map(item => ({
+        ...item,
+        aciklama: formatUnits(item.aciklama)
+      }));
       setQuote(data);
     } catch (err: any) {
       alert(`Ses işlenirken hata oluştu: ${err.message}`);
