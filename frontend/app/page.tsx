@@ -728,7 +728,12 @@ export default function Home() {
     const a = document.createElement("a");
     a.href = url;
     a.download = pdfData.name;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 
   // Shift maintenance date by +1 or -1 year
