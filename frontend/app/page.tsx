@@ -687,8 +687,7 @@ export default function Home() {
             .forEach((el) => el.remove());
         },
       },
-      jsPDF: { unit: "px", format: [794, 1123], orientation: "portrait" as const },
-    };
+      jsPDF: { unit: "px", format: [794, 1123] as [number, number], orientation: "portrait" as const },
 
     const pdfBlob: Blob = await html2pdf()
       .set(opt)
