@@ -3,16 +3,20 @@ import React from 'react';
 // Helper function to format units
 export const formatUnits = (text: string): string => {
   return text
-    .replace(/\b(\d+(?:[.,]\d+)?)\s*m2\b/gi, '$1 m²')
-    .replace(/\b(\d+(?:[.,]\d+)?)\s*m3\b/gi, '$1 m³');
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:m2|metrekare|metre\s*kare)\b/gi, '$1 m²')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:m3|metreküp|metre\s*küp)\b/gi, '$1 m³')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:milimetre|mili\s*metre)\b/gi, '$1 mm')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:santimetre|santi\s*metre)\b/gi, '$1 cm');
 };
 
 export interface PdfTemplateProps {
   pdfRef: React.RefObject<HTMLDivElement | null>;
-  logoSrc?: string;
-  companyName?: string;
-  companySubtitle?: string;
-  companyPhone?: string;
+  logoSrc?: string | null;
+  companyInfo?: {
+    name: string;
+    subtitle: string;
+    phone: string;
+  };
   date: string;
   buildingName: string;
   clientName: string;
@@ -30,9 +34,11 @@ export interface PdfTemplateProps {
 export const PdfTemplate: React.FC<PdfTemplateProps> = ({
   pdfRef,
   logoSrc,
-  companyName = 'AKSOY ÇATI & İZOLASYON',
-  companySubtitle = 'Su ve Isı İzolasyon Uygulamaları',
-  companyPhone = '0532 411 84 32',
+  companyInfo = {
+    name: 'AKSOY ÇATI & İZOLASYON',
+    subtitle: 'Su ve Isı İzolasyon Uygulamaları',
+    phone: '0532 411 84 32',
+  },
   date,
   buildingName,
   clientName,
@@ -80,16 +86,16 @@ export const PdfTemplate: React.FC<PdfTemplateProps> = ({
             )}
             <div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: '#000000', letterSpacing: '0.3px' }}>
-                {companyName}
+                {companyInfo.name}
               </div>
-              {companySubtitle && (
+              {companyInfo.subtitle && (
                 <div style={{ fontSize: '11px', color: '#000000', marginTop: '2px' }}>
-                  {companySubtitle}
+                  {companyInfo.subtitle}
                 </div>
               )}
-              {companyPhone && (
+              {companyInfo.phone && (
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#000000', marginTop: '2px' }}>
-                  Tel: {companyPhone}
+                  Tel: {companyInfo.phone}
                 </div>
               )}
             </div>

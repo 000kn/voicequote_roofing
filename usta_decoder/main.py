@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 from fpdf import FPDF
@@ -274,7 +275,7 @@ def sesi_teklife_donustur(ses_dosyasi_yolu: str):
     """
 
     response = client.models.generate_content(
-        model="gemini-3.5-flash-lite",
+        model="gemini-3.1-flash-lite",
         contents=[audio_file, prompt],
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -411,7 +412,10 @@ GÖREV VE KURALLAR:
    - Kullanıcının belirttiği ödeme planını (örn: "%40 Peşin (154.000 TL) - %30 Ara Hakediş (115.500 TL) - %30 İş Tesliminde (115.500 TL)") tam olarak çıkar ve 'ana_tutar_rakam'a göre TL miktarlarını tam hesapla.
    - Kullanıcı ödeme planı hakkında HİÇBİR şey belirtmediyse KESİNLİKLE varsayılan olarak "%40 Peşin - %60 İş Tesliminde" ifadesini kullan.
    - ÇIKTI MANTIĞI: Eğer ses kaydında özel bir plan belirtilmişse, varsayılan planı ASLA kullanma; doğrudan kullanıcının söylediğini TL hesaplamalarıyla birlikte döndür.
-4. FONETİK DÜZELTME: Ses kaydından gelen metinlerdeki bariz fonetik hataları (örn: 'çeşit malı' -> 'şaşırtmalı', '350'linden' -> 'iç yüzeylerinin', tekrarlanan kelimeler) düzelt. Ancak ses kaydındaki tüm sayıları, ölçüleri, metrajları ve teknik yapı malzemesi isimlerini KESİNLİKLE olduğu gibi koru, silme veya değiştirme.
+4. FONETİK DÜZELTME: Ses kaydından gelen metinlerdeki bariz fonetik hataları (örn: 'çeşit malı' -> 'şaşırtmalı', '350'linden' -> 'iç yüzeylerinin', tekrarlanan kelimeler) düzelt.
+   - ÖZEL SEKTÖR DÜZELTMELERİ: 'marpuşta' -> 'harpuşta', 'mohça' -> 'bohçalama' olarak düzelt.
+   - TEKNİK TERİM KORUMA: 'arduvazlı', 'şaloma', 'parapet', 'cam tülü', 'bitüm astar', 'eğim şapı', 'membran' gibi teknik yapı terimlerini doğru yazım kurallarıyla kullan.
+   - Ancak ses kaydındaki tüm sayıları, ölçüleri, metrajları ve teknik yapı malzemesi isimlerini KESİNLİKLE olduğu gibi koru, silme veya değiştirme.
 5. BAŞLIK: Varsayılan 'Binanızda yapılacak işler:'. Konuşmada özel bir giriş cümlesi söylendiyse 'baslik' alanına onu yaz.
 6. GARANTİ: Konuşmada 'garanti yok', 'garantisiz' denirse veya garantiden hiç bahsedilmezse 'garanti_var_mi' = False ve 'garanti_suresi' = None yap.
 7. YAZIYLA TUTAR: 'ana_tutar_yaziyla' ve 'alternatif_tutar_yaziyla' alanlarına sadece baş harfleri büyük kelimeler yaz; rakam, 'lira' veya 'TL' ekleme (Örn: 'Altmış Beş Bin').
@@ -486,31 +490,41 @@ async def parse_quote(audio: UploadFile = File(...), authorization: Optional[str
         current_system_prompt += f"\n{usta_hafizasi_metni}\nUstanın geçmiş tekliflerindeki fiyatlandırma, ifade üslubu ve garanti alışkanlıklarını bu yeni teklife de yansıt."
 
     mime_type = audio.content_type or "audio/mp4"
-    models = ["gemini-3.5-flash-lite", "gemini-3.5-flash"]
+    models = ["gemini-3.1-flash-lite", "gemini-2.5-flash"]
     last_error = None
 
-    for model_name in models:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[
-                    types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
-                    "Bu ses kaydını analiz et ve teklif şemasını doldur.",
-                ],
-                config=types.GenerateContentConfig(
-                    system_instruction=current_system_prompt,
-                    response_mime_type="application/json",
-                    response_schema=GeminiQuoteOutput,
-                    temperature=0.1,
-                ),
-            )
-            parsed = GeminiQuoteOutput.model_validate_json(response.text)
-            bugun = datetime.now().strftime("%d.%m.%Y")
-            print("TRANSCRIPT:", response.text)
-            return DecodedQuoteResponse(**parsed.model_dump(), tarih=bugun)
-        except Exception as e:
-            last_error = e
-            continue
+    try:
+        for model_name in models:
+            for attempt in range(3):
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=[
+                            types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
+                            "Bu ses kaydını analiz et ve teklif şemasını doldur.",
+                        ],
+                        config=types.GenerateContentConfig(
+                            system_instruction=current_system_prompt,
+                            response_mime_type="application/json",
+                            response_schema=GeminiQuoteOutput,
+                            temperature=0.1,
+                        ),
+                    )
+                    parsed = GeminiQuoteOutput.model_validate_json(response.text)
+                    bugun = datetime.now().strftime("%d.%m.%Y")
+                    print("TRANSCRIPT:", response.text)
+                    return DecodedQuoteResponse(**parsed.model_dump(), tarih=bugun)
+                except Exception as e:
+                    error_str = str(e)
+                    if "503" in error_str or "429" in error_str or "ServiceUnavailable" in error_str or "TooManyRequests" in error_str:
+                        if attempt < 2:
+                            time.sleep(1.5 if attempt == 0 else 3.0)
+                            print(f"[RETRY] {model_name} denemesi {attempt+1} başarısız, tekrar deneniyor...")
+                            continue
+                    last_error = e
+                    break # Break retry loop if not retriable or exhausted
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sunucu hatası: {str(e)}")
 
     raise HTTPException(status_code=503, detail=f"AI servisi yanıt vermedi: {last_error}")
 
