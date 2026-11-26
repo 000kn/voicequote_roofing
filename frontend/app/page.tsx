@@ -688,6 +688,7 @@ export default function Home() {
         },
       },
       jsPDF: { unit: "px", format: [794, 1123] as [number, number], orientation: "portrait" as const },
+    };
 
     const pdfBlob: Blob = await html2pdf()
       .set(opt)
