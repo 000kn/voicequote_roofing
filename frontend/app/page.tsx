@@ -724,12 +724,17 @@ export default function Home() {
   const downloadPdf = async () => {
     const pdfData = await generatePdfBlob();
     if (!pdfData) return;
-    const url = URL.createObjectURL(pdfData.blob);
+
+    const downloadBlob = new Blob([pdfData.blob], {
+      type: "application/octet-stream",
+    });
+    const url = URL.createObjectURL(downloadBlob);
     const a = document.createElement("a");
+    a.style.display = "none";
     a.href = url;
-    a.download = pdfData.name;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
+    a.download = pdfData.name.endsWith(".pdf")
+      ? pdfData.name
+      : `${pdfData.name}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
